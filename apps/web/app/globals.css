@@ -1,0 +1,251 @@
+:root {
+  color-scheme: light;
+  --bg: #f6efe5;
+  --panel: #fffdf8;
+  --panel-border: #d7c8b5;
+  --text: #2f2417;
+  --muted: #655340;
+  --accent: #7e4f21;
+  --accent-strong: #5c3714;
+  --surface: #f0e3d3;
+  --success: #306844;
+  --shadow: 0 20px 48px rgba(47, 36, 23, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  padding: 24px;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.page-shell {
+  display: grid;
+  gap: 20px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.scale-s {
+  font-size: 16px;
+}
+
+.scale-m {
+  font-size: 20px;
+}
+
+.scale-l {
+  font-size: 24px;
+}
+
+.hero-card,
+.panel,
+.seat-card,
+.status-card {
+  background: var(--panel);
+  border: 2px solid var(--panel-border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.hero-card,
+.panel {
+  padding: 24px;
+}
+
+.hero-card h1,
+.panel h2,
+.status-card h3,
+.seat-card h3 {
+  margin-top: 0;
+}
+
+.eyebrow,
+.seat-label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin: 0 0 8px;
+  font-size: 0.8em;
+}
+
+.hero-copy,
+.helper-copy,
+.seat-summary {
+  color: var(--muted);
+}
+
+.form-grid,
+.status-grid,
+.seat-grid,
+.table-layout {
+  display: grid;
+  gap: 20px;
+}
+
+.form-grid,
+.status-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.table-layout {
+  grid-template-columns: 340px 1fr;
+  align-items: start;
+}
+
+.seat-grid {
+  grid-template-columns: 1fr;
+}
+
+.field {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.field input {
+  min-height: 60px;
+  border-radius: 18px;
+  border: 2px solid var(--panel-border);
+  padding: 0 18px;
+  background: white;
+}
+
+.primary-button,
+.secondary-button,
+.chip {
+  min-height: 56px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0 22px;
+}
+
+.primary-button {
+  background: var(--accent);
+  color: white;
+}
+
+.primary-button:hover {
+  background: var(--accent-strong);
+}
+
+.secondary-button,
+.chip {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.chip-active {
+  background: var(--accent);
+  color: white;
+}
+
+.font-scale-picker,
+.room-header,
+.room-header-actions,
+.action-bar,
+.board-topline,
+.seat-card-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.seat-card,
+.status-card {
+  padding: 18px;
+}
+
+.seat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.seat-ready {
+  background: rgba(48, 104, 68, 0.14);
+  color: var(--success);
+}
+
+.board-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.discard-river,
+.hand-zone {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 100px;
+  padding: 12px;
+  border-radius: 18px;
+  background: rgba(126, 79, 33, 0.06);
+}
+
+.mahjong-tile {
+  min-width: 72px;
+  min-height: 96px;
+  border-radius: 18px;
+  border: 2px solid var(--panel-border);
+  background: white;
+  color: var(--text);
+  padding: 12px 10px;
+}
+
+.tile-concealed {
+  background: linear-gradient(135deg, #7e4f21, #d19e54);
+  color: white;
+}
+
+.tile-interactive {
+  border-color: var(--accent);
+}
+
+.tile-selected {
+  outline: 4px solid rgba(126, 79, 33, 0.28);
+}
+
+.scale-s .mahjong-tile {
+  min-width: 68px;
+  min-height: 92px;
+}
+
+.scale-l .mahjong-tile {
+  min-width: 90px;
+  min-height: 118px;
+}
+
+.status-panel {
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .table-layout {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "mahjong",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @mahjong/web",
+    "dev:realtime": "npm run dev --workspace @mahjong/realtime",
+    "build": "npm run build --workspace @mahjong/american-card && npm run build --workspace @mahjong/game-engine && npm run build --workspace @mahjong/ui && npm run build --workspace @mahjong/db && npm run build --workspace @mahjong/realtime && npm run build --workspace @mahjong/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  }
+}

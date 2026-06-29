@@ -1,0 +1,17 @@
+{
+  "name": "@mahjong/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --project tsconfig.json"
+  },
+  "dependencies": {
+    "mysql2": "^3.14.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
