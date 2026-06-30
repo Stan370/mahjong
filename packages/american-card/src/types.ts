@@ -21,7 +21,7 @@ export interface Tile {
 }
 
 export interface HandPatternGroup {
-  kind: "single" | "pair" | "pong" | "kong";
+  kind: "single" | "pair" | "pong" | "kong" | "quint";
   tile: TileCode | "any-flower" | "any-joker";
   concealed?: boolean;
   maxJokers?: number;
@@ -33,6 +33,7 @@ export interface AmericanHandPattern {
   section: string;
   groups: HandPatternGroup[];
   allowsJokers: boolean;
+  points?: number;
   notes?: string;
 }
 

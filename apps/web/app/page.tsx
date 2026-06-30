@@ -21,7 +21,7 @@ export default function HomePage() {
   const [name, setName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [fontScale, setFontScale] = useState<FontScale>(loadStoredScale);
-  const [status, setStatus] = useState("Create a room or join a family table.");
+  const [status, setStatus] = useState("Choose how you'd like to play.");
   const [busy, setBusy] = useState(false);
 
   const helperText = useMemo(() => {
@@ -39,12 +39,19 @@ export default function HomePage() {
     window.localStorage.setItem("mahjong-font-scale", nextValue);
   };
 
+  function saveName() {
+    if (name.trim()) {
+      window.localStorage.setItem("mahjong-guest-name", name.trim());
+    }
+  }
+
   async function createRoom() {
     if (!name.trim()) {
       setStatus("Enter your name before creating a room.");
       return;
     }
 
+    saveName();
     setBusy(true);
     setStatus("Creating room...");
 
@@ -62,7 +69,6 @@ export default function HomePage() {
 
     const created = (await response.json()) as { roomId: string; guestId: string };
     window.localStorage.setItem("mahjong-guest-id", created.guestId);
-    window.localStorage.setItem("mahjong-guest-name", name.trim());
     window.localStorage.setItem("mahjong-font-scale", fontScale);
     router.push(`/room/${created.roomId}`);
   }
@@ -73,43 +79,79 @@ export default function HomePage() {
       return;
     }
 
+    saveName();
     const roomId = joinCode.includes("/") ? joinCode.split("/").at(-1) ?? "" : joinCode.toUpperCase();
     router.push(`/room/${roomId}`);
+  }
+
+  function quickPlay() {
+    if (!name.trim()) {
+      setStatus("Enter your name first.");
+      return;
+    }
+    saveName();
+    router.push("/play");
   }
 
   return (
     <main className={`page-shell scale-${fontScale.toLowerCase()}`}>
       <section className="hero-card">
-        <p className="eyebrow">American Mahjong MVP</p>
-        <h1>Play with family, not with a confusing lobby.</h1>
+        <p className="eyebrow">American Mahjong</p>
+        <h1>Play with family, learn at your pace.</h1>
         <p className="hero-copy">
-          Built for large screens, large tiles, and one-click room sharing. No account required to sit
-          down and play.
+          Built for large screens, large tiles, and one-click room sharing. No account required.
         </p>
         <FontScalePicker value={fontScale} onChange={persistScale} />
         <p className="helper-copy">{helperText}</p>
       </section>
 
-      <section className="form-grid">
-        <article className="panel">
-          <h2>Create a private room</h2>
-          <label className="field">
-            <span>Your name</span>
-            <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Grandma Lin" />
-          </label>
+      {/* Name input */}
+      <section className="panel name-section">
+        <label className="field">
+          <span>Your name</span>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Grandma Lin"
+          />
+        </label>
+      </section>
+
+      {/* Three modes */}
+      <section className="mode-grid">
+        <article className="panel mode-card mode-quick">
+          <div className="mode-icon">🎮</div>
+          <h2>Quick Play</h2>
+          <p className="helper-copy">
+            Jump straight in against 3 AI bots. Perfect for practice or a quick game.
+          </p>
+          <button type="button" className="primary-button" onClick={quickPlay} disabled={busy}>
+            Play now
+          </button>
+        </article>
+
+        <article className="panel mode-card mode-room">
+          <div className="mode-icon">👨‍👩‍👧‍👦</div>
+          <h2>Family Room</h2>
+          <p className="helper-copy">
+            Create a private room and share the link with family.
+          </p>
           <button type="button" className="primary-button" onClick={createRoom} disabled={busy}>
             Create room
           </button>
         </article>
 
-        <article className="panel">
-          <h2>Join from a shared link</h2>
+        <article className="panel mode-card mode-join">
+          <div className="mode-icon">🔗</div>
+          <h2>Join a Game</h2>
+          <p className="helper-copy">
+            Got an invite link or room code? Jump right in.
+          </p>
           <label className="field">
-            <span>Room link or code</span>
             <input
               value={joinCode}
               onChange={(event) => setJoinCode(event.target.value)}
-              placeholder="Paste a link or enter ABC123"
+              placeholder="Paste link or code"
             />
           </label>
           <button type="button" className="primary-button" onClick={joinRoom}>

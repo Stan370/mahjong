@@ -50,8 +50,22 @@ export interface PlayerGameView {
   exposedMelds: ExposedMeld[];
 }
 
+export type CharlestonDirection = "right" | "across" | "left" | "courtesy";
+
+export interface CharlestonState {
+  direction: CharlestonDirection;
+  step: number;
+  round: 1 | 2;
+  submissions: Partial<Record<SeatWind, TileCode[]>>;
+  /** Voting sub-phase between round 1 and round 2 */
+  voting?: boolean;
+  votes?: Partial<Record<SeatWind, boolean>>;
+}
+
 export type GamePhase =
   | "lobby"
+  | "charleston"
+  | "charleston-vote"
   | "awaiting-discard"
   | "claim-window"
   | "finished";
@@ -62,6 +76,7 @@ export interface GameState {
   discards: Tile[];
   players: Record<SeatWind, PlayerGameView>;
   phase: GamePhase;
+  charleston?: CharlestonState;
   claimWindow?: ClaimWindow;
   result?: {
     winnerId: string;
@@ -82,6 +97,7 @@ export interface RoomSnapshot {
     myTiles: Tile[];
     myExposedMelds: ExposedMeld[];
     exposedMelds: Record<SeatWind, ExposedMeld[]>;
+    charleston?: { direction: CharlestonDirection; step: number; round: 1 | 2; voting?: boolean };
     claimWindow?: { discardedTile: Tile; discardedBy: SeatWind };
     result?: GameState["result"];
   };
@@ -226,7 +242,7 @@ export function canStart(room: RoomState): boolean {
 
 // --- Game lifecycle ---
 
-export function startGame(room: RoomState): RoomState {
+export function startGame(room: RoomState, skipCharleston = false): RoomState {
   if (!canStart(room)) {
     throw new Error("All four seats must be occupied and ready before the hand can start.");
   }
@@ -239,21 +255,265 @@ export function startGame(room: RoomState): RoomState {
     north: { concealedTiles: [], exposedMelds: [] }
   };
 
+  // During charleston everyone gets 13; East draws 14th after charleston
   for (const wind of SEAT_ORDER) {
     players[wind].concealedTiles = deck.splice(0, 13);
   }
 
-  // East gets 14th tile (first turn advantage)
-  players.east.concealedTiles.push(deck.shift() as Tile);
+  if (skipCharleston) {
+    // Skip straight to play — East gets 14th tile
+    players.east.concealedTiles.push(deck.shift() as Tile);
+    room.game = {
+      deck, currentTurn: "east", discards: [], players,
+      phase: "awaiting-discard"
+    };
+  } else {
+    room.game = {
+      deck, currentTurn: "east", discards: [], players,
+      phase: "charleston",
+      charleston: { direction: "right", step: 1, round: 1, submissions: {} }
+    };
+  }
 
-  room.game = {
-    deck,
-    currentTurn: "east",
-    discards: [],
-    players,
-    phase: "awaiting-discard"
-  };
   room.startedAt = new Date().toISOString();
+  return room;
+}
+
+// --- Charleston ---
+
+const CHARLESTON_ROUND1: { direction: CharlestonDirection; required: number }[] = [
+  { direction: "right", required: 3 },
+  { direction: "across", required: 3 },
+  { direction: "left", required: 0 },   // 0 means 0-3 tiles allowed
+];
+
+const CHARLESTON_ROUND2: { direction: CharlestonDirection; required: number }[] = [
+  { direction: "left", required: 3 },
+  { direction: "across", required: 3 },
+  { direction: "right", required: 0 },
+];
+
+const FINAL_COURTESY: { direction: CharlestonDirection; required: number } =
+  { direction: "courtesy", required: 0 };
+
+function getCharlestonSteps(round: 1 | 2): { direction: CharlestonDirection; required: number }[] {
+  return round === 1 ? CHARLESTON_ROUND1 : CHARLESTON_ROUND2;
+}
+
+function charlestonTarget(from: SeatWind, direction: CharlestonDirection): SeatWind {
+  const idx = SEAT_ORDER.indexOf(from);
+  switch (direction) {
+    case "right":   return SEAT_ORDER[(idx + 1) % 4];
+    case "left":    return SEAT_ORDER[(idx + 3) % 4];
+    case "across":  return SEAT_ORDER[(idx + 2) % 4];
+    case "courtesy": return SEAT_ORDER[(idx + 2) % 4];
+  }
+}
+
+export function submitCharlestonPass(
+  room: RoomState,
+  playerId: string,
+  tileCodes: TileCode[]
+): RoomState {
+  if (!room.game || room.game.phase !== "charleston" || !room.game.charleston) {
+    throw new Error("Not in charleston phase.");
+  }
+
+  const seatWind = findSeatWind(room, playerId);
+  if (!seatWind) throw new Error("Player must be seated.");
+
+  const cs = room.game.charleston;
+  if (cs.voting) {
+    throw new Error("Currently in voting phase, not passing.");
+  }
+
+  const steps = cs.direction === "courtesy"
+    ? [FINAL_COURTESY]
+    : getCharlestonSteps(cs.round);
+  const stepIdx = cs.direction === "courtesy" ? 0 : cs.step - 1;
+  const step = steps[stepIdx];
+  if (!step) throw new Error("Invalid charleston step.");
+
+  const minCount = step.required || 0;
+  const maxCount = step.required || 3;
+
+  if (step.required > 0 && tileCodes.length !== step.required) {
+    throw new Error(`Must pass exactly ${step.required} tiles for ${step.direction} pass.`);
+  }
+  if (tileCodes.length < minCount || tileCodes.length > maxCount) {
+    throw new Error(`Must pass ${minCount}-${maxCount} tiles for ${step.direction} pass.`);
+  }
+
+  // Validate: no jokers
+  const hand = room.game.players[seatWind].concealedTiles;
+  for (const code of tileCodes) {
+    const tile = hand.find((t) => t.code === code);
+    if (!tile) throw new Error(`Tile ${code} not in hand.`);
+    if (isJokerTile(tile)) throw new Error("Cannot pass jokers during Charleston.");
+  }
+
+  room.game.charleston.submissions[seatWind] = tileCodes;
+  return room;
+}
+
+export function allCharlestonSubmitted(room: RoomState): boolean {
+  if (!room.game?.charleston) return false;
+  return SEAT_ORDER.every((w) => w in room.game!.charleston!.submissions);
+}
+
+export function resolveCharleston(room: RoomState): RoomState {
+  if (!room.game?.charleston) throw new Error("No charleston to resolve.");
+
+  const cs = room.game.charleston;
+  const direction = cs.direction;
+
+  // For courtesy pass, find min tiles each across-pair is willing to exchange
+  if (direction === "courtesy") {
+    const pairs: [SeatWind, SeatWind][] = [["east", "west"], ["south", "north"]];
+    for (const [a, b] of pairs) {
+      const aTiles = cs.submissions[a] ?? [];
+      const bTiles = cs.submissions[b] ?? [];
+      const exchangeCount = Math.min(aTiles.length, bTiles.length);
+
+      const aHand = room.game.players[a].concealedTiles;
+      const bHand = room.game.players[b].concealedTiles;
+      const aRemoved: Tile[] = [];
+      const bRemoved: Tile[] = [];
+
+      for (let i = 0; i < exchangeCount; i++) {
+        const ai = aHand.findIndex((t) => t.code === aTiles[i]);
+        if (ai !== -1) aRemoved.push(...aHand.splice(ai, 1));
+        const bi = bHand.findIndex((t) => t.code === bTiles[i]);
+        if (bi !== -1) bRemoved.push(...bHand.splice(bi, 1));
+      }
+
+      aHand.push(...bRemoved);
+      bHand.push(...aRemoved);
+    }
+  } else {
+    // Directional pass: each player sends tiles to their target
+    const outgoing = new Map<SeatWind, Tile[]>();
+
+    for (const wind of SEAT_ORDER) {
+      const codes = cs.submissions[wind] ?? [];
+      const hand = room.game.players[wind].concealedTiles;
+      const removed: Tile[] = [];
+
+      for (const code of codes) {
+        const idx = hand.findIndex((t) => t.code === code);
+        if (idx !== -1) removed.push(...hand.splice(idx, 1));
+      }
+
+      outgoing.set(wind, removed);
+    }
+
+    // Deliver tiles
+    for (const from of SEAT_ORDER) {
+      const target = charlestonTarget(from, direction);
+      room.game.players[target].concealedTiles.push(...(outgoing.get(from) ?? []));
+    }
+  }
+
+  // Handle final courtesy pass — done after this
+  if (direction === "courtesy") {
+    finishCharleston(room);
+    return room;
+  }
+
+  // Advance to next step or finish round
+  const steps = getCharlestonSteps(cs.round);
+  const nextStep = cs.step + 1;
+
+  if (nextStep > steps.length) {
+    if (cs.round === 1) {
+      // Enter voting phase for round 2
+      room.game.phase = "charleston-vote";
+      room.game.charleston = {
+        direction: cs.direction,
+        step: cs.step,
+        round: 1,
+        submissions: {},
+        voting: true,
+        votes: {}
+      };
+    } else {
+      // Round 2 done → final courtesy pass
+      room.game.charleston = {
+        direction: "courtesy",
+        step: 1,
+        round: 2,
+        submissions: {}
+      };
+      room.game.phase = "charleston";
+    }
+  } else {
+    room.game.charleston = {
+      direction: steps[nextStep - 1].direction,
+      step: nextStep,
+      round: cs.round,
+      submissions: {}
+    };
+  }
+
+  return room;
+}
+
+function finishCharleston(room: RoomState): void {
+  if (!room.game) return;
+  room.game.players.east.concealedTiles.push(room.game.deck.shift() as Tile);
+  room.game.phase = "awaiting-discard";
+  room.game.charleston = undefined;
+}
+
+// --- Charleston vote for round 2 ---
+
+export function submitCharlestonVote(
+  room: RoomState,
+  playerId: string,
+  wantSecondRound: boolean
+): RoomState {
+  if (!room.game || room.game.phase !== "charleston-vote" || !room.game.charleston?.voting) {
+    throw new Error("Not in charleston voting phase.");
+  }
+
+  const seatWind = findSeatWind(room, playerId);
+  if (!seatWind) throw new Error("Player must be seated.");
+
+  if (!room.game.charleston.votes) room.game.charleston.votes = {};
+  room.game.charleston.votes[seatWind] = wantSecondRound;
+
+  return room;
+}
+
+export function allCharlestonVotesIn(room: RoomState): boolean {
+  if (!room.game?.charleston?.votes) return false;
+  return SEAT_ORDER.every((w) => w in room.game!.charleston!.votes!);
+}
+
+export function resolveCharlestonVote(room: RoomState): RoomState {
+  if (!room.game?.charleston?.votes) throw new Error("No votes to resolve.");
+
+  const allYes = SEAT_ORDER.every((w) => room.game!.charleston!.votes![w] === true);
+
+  if (allYes) {
+    // Start round 2
+    room.game.phase = "charleston";
+    room.game.charleston = {
+      direction: "left",
+      step: 1,
+      round: 2,
+      submissions: {}
+    };
+  } else {
+    // Skip to final courtesy pass
+    room.game.phase = "charleston";
+    room.game.charleston = {
+      direction: "courtesy",
+      step: 1,
+      round: 1,
+      submissions: {}
+    };
+  }
 
   return room;
 }
@@ -600,6 +860,14 @@ export function createSnapshot(room: RoomState, viewerId: string): RoomSnapshot 
             west: room.game.players.west.exposedMelds,
             north: room.game.players.north.exposedMelds
           },
+          charleston: room.game.charleston
+            ? {
+                direction: room.game.charleston.direction,
+                step: room.game.charleston.step,
+                round: room.game.charleston.round,
+                voting: room.game.charleston.voting
+              }
+            : undefined,
           claimWindow: room.game.claimWindow
             ? {
                 discardedTile: room.game.claimWindow.discardedTile,

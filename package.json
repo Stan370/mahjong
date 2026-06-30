@@ -8,6 +8,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev": "npm run dev:realtime & npm run dev:web",
     "dev:web": "npm run dev --workspace @mahjong/web",
     "dev:realtime": "npm run dev --workspace @mahjong/realtime",
     "build": "npm run build --workspace @mahjong/american-card && npm run build --workspace @mahjong/game-engine && npm run build --workspace @mahjong/ui && npm run build --workspace @mahjong/db && npm run build --workspace @mahjong/realtime && npm run build --workspace @mahjong/web",

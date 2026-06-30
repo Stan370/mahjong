@@ -7,6 +7,8 @@ import { WebSocket, WebSocketServer } from "ws";
 import { z } from "zod";
 
 import {
+  allCharlestonSubmitted,
+  allCharlestonVotesIn,
   allClaimsIn,
   canStart,
   createRoomState,
@@ -15,16 +17,26 @@ import {
   discardTile,
   exchangeJoker,
   passClaim,
+  resolveCharleston,
+  resolveCharlestonVote,
   resolveClaims,
   startGame,
+  submitCharlestonPass,
+  submitCharlestonVote,
   submitClaim,
   takeSeat,
   toggleReady,
   upsertPlayer,
+  // Bot AI
+  botCharlestonPass,
+  botCharlestonVote,
+  botDecideClaim,
+  botDecideDiscard,
   type FontScale,
   type RoomState,
   type SeatWind
 } from "@mahjong/game-engine";
+import type { TileCode } from "@mahjong/american-card";
 import { createPersistenceAdapter } from "@mahjong/db";
 
 const createRoomSchema = z.object({
@@ -64,6 +76,22 @@ const clientMessageSchema = z.discriminatedUnion("type", [
     payload: z.object({
       roomId: z.string(),
       playerId: z.string()
+    })
+  }),
+  z.object({
+    type: z.literal("submitCharlestonPass"),
+    payload: z.object({
+      roomId: z.string(),
+      playerId: z.string(),
+      tileCodes: z.array(z.string())
+    })
+  }),
+  z.object({
+    type: z.literal("submitCharlestonVote"),
+    payload: z.object({
+      roomId: z.string(),
+      playerId: z.string(),
+      wantSecondRound: z.boolean()
     })
   }),
   z.object({
@@ -159,8 +187,20 @@ const persistence = createPersistenceAdapter();
 const liveState = createLiveStateAdapter();
 const socketsByRoom = new Map<string, Set<SocketWithPlayerId>>();
 const claimTimers = new Map<string, ReturnType<typeof setTimeout>>();
+/** Track which player IDs are bots (for auto-play) */
+const botPlayerIds = new Set<string>();
 
 const CLAIM_WINDOW_MS = 10_000;
+const BOT_DELAY_MS = 1200;
+const SEAT_ORDER: SeatWind[] = ["east", "south", "west", "north"];
+
+// --- Bot helper: find seat for a player id ---
+
+function findBotSeatWind(room: RoomState, botId: string): SeatWind | undefined {
+  return SEAT_ORDER.find((w) => room.seats[w].playerId === botId);
+}
+
+// --- Auto-resolve helpers ---
 
 async function autoResolveClaims(roomId: string) {
   const room = await liveState.getRoom(roomId);
@@ -179,7 +219,180 @@ async function autoResolveClaims(roomId: string) {
   }
   await liveState.saveRoom(room);
   await broadcastRoom(room.id);
+
+  // After resolving claims, if it's a bot's turn, schedule bot action
+  if (room.game.phase === "awaiting-discard") {
+    scheduleBotTurn(room);
+  }
 }
+
+/** Schedule bot actions for the current turn if it's a bot */
+async function scheduleBotTurn(room: RoomState) {
+  if (!room.game || room.game.phase !== "awaiting-discard") return;
+  const currentPlayerId = room.seats[room.game.currentTurn].playerId;
+  if (!currentPlayerId || !botPlayerIds.has(currentPlayerId)) return;
+
+  setTimeout(async () => {
+    const fresh = await liveState.getRoom(room.id);
+    if (!fresh?.game || fresh.game.phase !== "awaiting-discard") return;
+    if (fresh.seats[fresh.game.currentTurn].playerId !== currentPlayerId) return;
+
+    const seatWind = fresh.game.currentTurn;
+    const hand = fresh.game.players[seatWind].concealedTiles;
+    const exposed = fresh.game.players[seatWind].exposedMelds;
+    const action = botDecideDiscard(hand, exposed);
+
+    if (action.type === "mahjong") {
+      declareMahjong(fresh, currentPlayerId);
+      await persistence.updateRoomStatus(fresh.id, "finished");
+      await persistence.saveHandSummary({
+        roomId: fresh.id,
+        winnerProfileId: currentPlayerId,
+        outcome: fresh.game.result?.status === "mahjong" ? "mahjong" : "invalid",
+        matchedPatternId: fresh.game.result?.patternId,
+        summaryJson: JSON.stringify(fresh.game.result ?? {})
+      });
+    } else {
+      discardTile(fresh, currentPlayerId, action.tileCode);
+      // Start claim window — bots will respond
+      claimTimers.set(fresh.id, setTimeout(() => autoResolveClaims(fresh.id), CLAIM_WINDOW_MS));
+      scheduleBotClaimResponses(fresh);
+    }
+
+    await liveState.saveRoom(fresh);
+    await broadcastRoom(fresh.id);
+  }, BOT_DELAY_MS);
+}
+
+/** All bots in the room auto-respond to claim windows */
+async function scheduleBotClaimResponses(room: RoomState) {
+  if (!room.game?.claimWindow) return;
+
+  const discarder = room.game.claimWindow.discardedBy;
+
+  for (const wind of SEAT_ORDER) {
+    if (wind === discarder) continue;
+    const pid = room.seats[wind].playerId;
+    if (!pid || !botPlayerIds.has(pid)) continue;
+
+    setTimeout(async () => {
+      const fresh = await liveState.getRoom(room.id);
+      if (!fresh?.game?.claimWindow) return;
+      // Already responded?
+      if (wind in (fresh.game.claimWindow.claims ?? {})) return;
+
+      const hand = fresh.game.players[wind].concealedTiles;
+      const exposed = fresh.game.players[wind].exposedMelds;
+      const discardedTile = fresh.game.claimWindow.discardedTile;
+      const action = botDecideClaim(hand, exposed, discardedTile);
+
+      if (action.type === "claim") {
+        submitClaim(fresh, pid, action.claimType);
+      } else {
+        passClaim(fresh, pid);
+      }
+
+      await liveState.saveRoom(fresh);
+
+      if (allClaimsIn(fresh)) {
+        clearTimeout(claimTimers.get(fresh.id));
+        claimTimers.delete(fresh.id);
+        await autoResolveClaims(fresh.id);
+      } else {
+        await broadcastRoom(fresh.id);
+      }
+    }, BOT_DELAY_MS + Math.random() * 500);
+  }
+}
+
+/** Bots submit charleston passes — sequential to avoid race conditions */
+async function scheduleBotCharlestonPasses(room: RoomState) {
+  if (!room.game || room.game.phase !== "charleston" || !room.game.charleston) return;
+  const savedRoomId = room.id;
+
+  setTimeout(async () => {
+    const fresh = await liveState.getRoom(savedRoomId);
+    if (!fresh?.game?.charleston || fresh.game.phase !== "charleston") return;
+
+    // Submit all bot passes sequentially on fresh state
+    for (const wind of SEAT_ORDER) {
+      const pid = fresh.seats[wind].playerId;
+      if (!pid || !botPlayerIds.has(pid)) continue;
+      if (fresh.game.charleston!.submissions[wind]) continue;
+
+      const hand = fresh.game.players[wind].concealedTiles;
+      const exposed = fresh.game.players[wind].exposedMelds;
+      const passAction = botCharlestonPass(hand, exposed, 3);
+
+      try {
+        submitCharlestonPass(fresh, pid, passAction.tileCodes);
+      } catch {
+        // If validation fails, pass fewer tiles (courtesy pass allows 0-3)
+        try { submitCharlestonPass(fresh, pid, passAction.tileCodes.slice(0, 2)); } catch {
+          try { submitCharlestonPass(fresh, pid, []); } catch { /* skip */ }
+        }
+      }
+    }
+
+    await liveState.saveRoom(fresh);
+
+    if (allCharlestonSubmitted(fresh)) {
+      resolveCharleston(fresh);
+      await liveState.saveRoom(fresh);
+      await broadcastRoom(fresh.id);
+      // Continue with next charleston step or game
+      if (fresh.game.phase === "charleston") {
+        scheduleBotCharlestonPasses(fresh);
+      } else if (fresh.game.phase === "charleston-vote") {
+        scheduleBotCharlestonVotes(fresh);
+      } else if (fresh.game.phase === "awaiting-discard") {
+        scheduleBotTurn(fresh);
+      }
+    } else {
+      await broadcastRoom(fresh.id);
+    }
+  }, BOT_DELAY_MS);
+}
+
+/** Bots submit charleston round 2 votes — sequential */
+async function scheduleBotCharlestonVotes(room: RoomState) {
+  if (!room.game || room.game.phase !== "charleston-vote" || !room.game.charleston?.voting) return;
+  const savedRoomId = room.id;
+
+  setTimeout(async () => {
+    const fresh = await liveState.getRoom(savedRoomId);
+    if (!fresh?.game?.charleston?.voting || fresh.game.phase !== "charleston-vote") return;
+
+    for (const wind of SEAT_ORDER) {
+      const pid = fresh.seats[wind].playerId;
+      if (!pid || !botPlayerIds.has(pid)) continue;
+      if (fresh.game.charleston!.votes?.[wind] !== undefined) continue;
+
+      const hand = fresh.game.players[wind].concealedTiles;
+      const exposed = fresh.game.players[wind].exposedMelds;
+      const vote = botCharlestonVote(hand, exposed);
+      submitCharlestonVote(fresh, pid, vote.wantSecondRound);
+    }
+
+    await liveState.saveRoom(fresh);
+
+    if (allCharlestonVotesIn(fresh)) {
+      resolveCharlestonVote(fresh);
+      await liveState.saveRoom(fresh);
+      await broadcastRoom(fresh.id);
+
+      if (fresh.game.phase === "charleston") {
+        scheduleBotCharlestonPasses(fresh);
+      } else if (fresh.game.phase === "awaiting-discard") {
+        scheduleBotTurn(fresh);
+      }
+    } else {
+      await broadcastRoom(fresh.id);
+    }
+  }, BOT_DELAY_MS);
+}
+
+// --- Express app ---
 
 const app = express();
 app.use(express.json());
@@ -233,6 +446,69 @@ app.post("/api/rooms", async (request, response) => {
     guestId,
     wsUrl: process.env.PUBLIC_WS_URL ?? "ws://localhost:8787"
   });
+});
+
+/** Quick Play: creates a room with 3 bot opponents, auto-starts */
+app.post("/api/quickplay", async (request, response) => {
+  const payload = createRoomSchema.parse(request.body);
+  const guestId = nanoid(12);
+  const roomId = nanoid(10).toUpperCase();
+  const inviteCode = roomId.slice(0, 6);
+
+  await persistence.upsertGuestProfile({
+    id: guestId,
+    displayName: payload.name,
+    fontScale: payload.fontScale
+  });
+
+  const room = createRoomState(roomId, {
+    id: guestId,
+    name: payload.name,
+    fontScale: payload.fontScale
+  });
+
+  takeSeat(room, guestId, "east");
+
+  // Add 3 bots
+  const botNames = ["Bot Linda", "Bot Susan", "Bot Karen"];
+  const botWinds: SeatWind[] = ["south", "west", "north"];
+  const botIds: string[] = [];
+
+  for (let i = 0; i < 3; i++) {
+    const botId = `bot-${nanoid(8)}`;
+    botIds.push(botId);
+    botPlayerIds.add(botId);
+    room.players[botId] = { id: botId, name: botNames[i], fontScale: "M" };
+    takeSeat(room, botId, botWinds[i]);
+    room.seats[botWinds[i]].ready = true;
+  }
+
+  // Ready up the human too
+  room.seats.east.ready = true;
+
+  // Start game
+  startGame(room);
+  await liveState.saveRoom(room);
+  await persistence.createRoom({
+    id: roomId,
+    hostProfileId: guestId,
+    inviteCode,
+    status: "playing"
+  });
+
+  response.status(201).json({
+    roomId,
+    inviteCode,
+    guestId,
+    wsUrl: process.env.PUBLIC_WS_URL ?? "ws://localhost:8787"
+  });
+
+  // Schedule bot actions for charleston or game
+  if (room.game?.phase === "charleston") {
+    scheduleBotCharlestonPasses(room);
+  } else if (room.game?.phase === "awaiting-discard") {
+    scheduleBotTurn(room);
+  }
 });
 
 app.post("/api/rooms/:roomId/join", async (request, response) => {
@@ -358,13 +634,57 @@ wss.on("connection", (socket) => {
           await persistence.updateRoomStatus(room.id, "playing");
           await liveState.saveRoom(room);
           await broadcastRoom(room.id);
+          // Schedule bot charleston if applicable
+          if (room.game?.phase === "charleston") {
+            scheduleBotCharlestonPasses(room);
+          } else if (room.game?.phase === "awaiting-discard") {
+            scheduleBotTurn(room);
+          }
           break;
+        case "submitCharlestonPass": {
+          submitCharlestonPass(room, parsed.payload.playerId, parsed.payload.tileCodes as TileCode[]);
+          await liveState.saveRoom(room);
+          if (allCharlestonSubmitted(room)) {
+            resolveCharleston(room);
+            await liveState.saveRoom(room);
+            await broadcastRoom(room.id);
+            if (room.game?.phase === "charleston") {
+              scheduleBotCharlestonPasses(room);
+            } else if (room.game?.phase === "charleston-vote") {
+              scheduleBotCharlestonVotes(room);
+            } else if (room.game?.phase === "awaiting-discard") {
+              scheduleBotTurn(room);
+            }
+          } else {
+            await broadcastRoom(room.id);
+          }
+          break;
+        }
+        case "submitCharlestonVote": {
+          submitCharlestonVote(room, parsed.payload.playerId, parsed.payload.wantSecondRound);
+          await liveState.saveRoom(room);
+          if (allCharlestonVotesIn(room)) {
+            resolveCharlestonVote(room);
+            await liveState.saveRoom(room);
+            await broadcastRoom(room.id);
+            if (room.game?.phase === "charleston") {
+              scheduleBotCharlestonPasses(room);
+            } else if (room.game?.phase === "awaiting-discard") {
+              scheduleBotTurn(room);
+            }
+          } else {
+            await broadcastRoom(room.id);
+          }
+          break;
+        }
         case "discardTile":
           discardTile(room, parsed.payload.playerId, parsed.payload.tileCode as never);
           await liveState.saveRoom(room);
           await broadcastRoom(room.id);
           // Start claim window timeout
           claimTimers.set(room.id, setTimeout(() => autoResolveClaims(room.id), CLAIM_WINDOW_MS));
+          // Bot claim responses
+          scheduleBotClaimResponses(room);
           break;
         case "submitClaim": {
           submitClaim(room, parsed.payload.playerId, parsed.payload.claimType as "pong" | "kong" | "mahjong");

@@ -20,6 +20,8 @@ function getRequiredCount(kind: HandPatternGroup["kind"]): number {
       return 3;
     case "kong":
       return 4;
+    case "quint":
+      return 5;
   }
 }
 

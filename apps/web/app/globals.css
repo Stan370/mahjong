@@ -1,251 +1,684 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  color-scheme: light;
-  --bg: #f6efe5;
-  --panel: #fffdf8;
-  --panel-border: #d7c8b5;
-  --text: #2f2417;
-  --muted: #655340;
-  --accent: #7e4f21;
-  --accent-strong: #5c3714;
-  --surface: #f0e3d3;
-  --success: #306844;
-  --shadow: 0 20px 48px rgba(47, 36, 23, 0.08);
+  color-scheme: dark;
+  --table-green: #1a6b3c;
+  --table-dark: #0d4d28;
+  --table-felt: #1f7a44;
+  --table-border: #2d8f56;
+  --table-shadow: 0 0 60px rgba(0,0,0,0.5);
+  --tile-face: #f5f0e3;
+  --tile-border: #c9b896;
+  --tile-back: #2d8f56;
+  --tile-back-dark: #1a6b3c;
+  --tile-selected: #ffd700;
+  --tile-interactive: rgba(255,215,0,0.3);
+  --text-light: #e8f5e9;
+  --text-muted: #a5d6a7;
+  --accent-gold: #ffd700;
+  --accent-red: #ef5350;
+  --accent-blue: #42a5f5;
+  --bg: #0a1f12;
+  --panel-bg: rgba(13,77,40,0.85);
+  --panel-border: rgba(45,143,86,0.4);
+  --btn-primary: #2e7d32;
+  --btn-primary-hover: #388e3c;
+  --btn-danger: #c62828;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+
+  /* Homepage overrides */
+  --home-bg: #f6efe5;
+  --home-panel: #fffdf8;
+  --home-border: #d7c8b5;
+  --home-text: #2f2417;
+  --home-muted: #655340;
+  --home-accent: #7e4f21;
+  --home-accent-strong: #5c3714;
+  --home-surface: #f0e3d3;
 }
 
-* {
-  box-sizing: border-box;
+* { box-sizing: border-box; margin: 0; }
+
+html, body {
+  min-height: 100vh;
+  font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-html,
-body {
-  margin: 0;
-  min-height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: Arial, Helvetica, sans-serif;
-}
+button { cursor: pointer; font: inherit; }
+input { font: inherit; }
 
-body {
+/* ============================================================
+   SCALES
+   ============================================================ */
+
+.scale-s { font-size: 14px; }
+.scale-m { font-size: 16px; }
+.scale-l { font-size: 20px; }
+
+/* ============================================================
+   HOMEPAGE  (light theme)
+   ============================================================ */
+
+body:has(.home-page) {
+  background: var(--home-bg);
+  color: var(--home-text);
   padding: 24px;
 }
 
-button,
-input {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-.page-shell {
+.home-page {
   display: grid;
-  gap: 20px;
-  max-width: 1280px;
+  gap: 24px;
+  max-width: 960px;
   margin: 0 auto;
 }
 
-.scale-s {
-  font-size: 16px;
-}
-
-.scale-m {
-  font-size: 20px;
-}
-
-.scale-l {
-  font-size: 24px;
-}
-
-.hero-card,
-.panel,
-.seat-card,
-.status-card {
-  background: var(--panel);
-  border: 2px solid var(--panel-border);
+.home-page .hero-card,
+.home-page .panel {
+  background: var(--home-panel);
+  border: 2px solid var(--home-border);
   border-radius: 24px;
-  box-shadow: var(--shadow);
+  padding: 28px;
+  box-shadow: 0 20px 48px rgba(47,36,23,0.08);
 }
 
-.hero-card,
-.panel {
-  padding: 24px;
-}
-
-.hero-card h1,
-.panel h2,
-.status-card h3,
-.seat-card h3 {
-  margin-top: 0;
-}
-
-.eyebrow,
-.seat-label {
+.home-page h1 { margin: 0 0 12px; font-size: 1.8em; }
+.home-page .eyebrow {
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  margin: 0 0 8px;
+  letter-spacing: 0.1em;
+  color: var(--home-muted);
+  margin-bottom: 8px;
   font-size: 0.8em;
+  font-weight: 600;
 }
+.home-page .hero-copy,
+.home-page .helper-copy { color: var(--home-muted); line-height: 1.5; }
 
-.hero-copy,
-.helper-copy,
-.seat-summary {
-  color: var(--muted);
-}
-
-.form-grid,
-.status-grid,
-.seat-grid,
-.table-layout {
-  display: grid;
-  gap: 20px;
-}
-
-.form-grid,
-.status-grid {
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-}
-
-.table-layout {
-  grid-template-columns: 340px 1fr;
-  align-items: start;
-}
-
-.seat-grid {
-  grid-template-columns: 1fr;
-}
-
-.field {
-  display: grid;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.field input {
-  min-height: 60px;
-  border-radius: 18px;
-  border: 2px solid var(--panel-border);
+.name-section .field { display: grid; gap: 8px; }
+.name-section .field span { font-weight: 600; }
+.name-section .field input {
+  height: 52px;
+  border-radius: 16px;
+  border: 2px solid var(--home-border);
   padding: 0 18px;
   background: white;
+  font-size: 1em;
 }
 
-.primary-button,
-.secondary-button,
-.chip {
-  min-height: 56px;
-  border-radius: 999px;
-  border: 0;
-  padding: 0 22px;
-}
-
-.primary-button {
-  background: var(--accent);
-  color: white;
-}
-
-.primary-button:hover {
-  background: var(--accent-strong);
-}
-
-.secondary-button,
-.chip {
-  background: var(--surface);
-  color: var(--text);
-}
-
-.chip-active {
-  background: var(--accent);
-  color: white;
-}
-
-.font-scale-picker,
-.room-header,
-.room-header-actions,
-.action-bar,
-.board-topline,
-.seat-card-header {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-.seat-card,
-.status-card {
-  padding: 18px;
-}
-
-.seat-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--muted);
-}
-
-.seat-ready {
-  background: rgba(48, 104, 68, 0.14);
-  color: var(--success);
-}
-
-.board-panel {
+.mode-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 20px;
 }
 
-.discard-river,
-.hand-zone {
+.mode-card {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  flex-wrap: wrap;
-  min-height: 100px;
-  padding: 12px;
-  border-radius: 18px;
-  background: rgba(126, 79, 33, 0.06);
 }
+.mode-card h2 { font-size: 1.3em; }
+.mode-icon { font-size: 2.4em; }
+
+.home-page .primary-button {
+  height: 52px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0 24px;
+  background: var(--home-accent);
+  color: white;
+  font-weight: 600;
+  font-size: 1em;
+  transition: background 0.15s;
+}
+.home-page .primary-button:hover { background: var(--home-accent-strong); }
+.home-page .primary-button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.home-page .secondary-button {
+  height: 52px;
+  border-radius: 999px;
+  border: 0;
+  padding: 0 24px;
+  background: var(--home-surface);
+  color: var(--home-text);
+  font-weight: 500;
+}
+
+.font-scale-picker { display: flex; gap: 8px; margin: 12px 0; }
+.chip {
+  height: 40px; padding: 0 16px;
+  border-radius: 999px; border: 0;
+  background: var(--home-surface);
+  color: var(--home-text);
+  font-weight: 600;
+}
+.chip-active { background: var(--home-accent); color: white; }
+
+.status-panel { text-align: center; padding: 16px; color: var(--home-muted); }
+
+/* ============================================================
+   PLAY PAGE (dark green mahjong table)
+   ============================================================ */
+
+body:has(.play-page) {
+  background: var(--bg);
+  color: var(--text-light);
+  padding: 0;
+}
+
+.play-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  gap: 0;
+  max-width: none;
+}
+
+/* --- Table area --- */
+
+.table-area {
+  flex: 1;
+  background: radial-gradient(ellipse at center, var(--table-felt) 0%, var(--table-dark) 100%);
+  border: 4px solid var(--table-border);
+  border-radius: 20px;
+  margin: 12px;
+  position: relative;
+  min-height: 420px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  grid-template-columns: auto 1fr auto;
+  padding: 16px;
+  box-shadow: inset 0 0 80px rgba(0,0,0,0.3), var(--table-shadow);
+}
+
+/* --- Opponent slots --- */
+
+.opp-top { grid-row: 1; grid-column: 2; justify-self: center; }
+.opp-left { grid-row: 2; grid-column: 1; align-self: center; }
+.opp-right { grid-row: 2; grid-column: 3; align-self: center; }
+.table-center { grid-row: 2; grid-column: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+
+.opp-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.opp-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 14px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 999px;
+  font-size: 0.78em;
+  font-weight: 600;
+  color: var(--text-light);
+  backdrop-filter: blur(4px);
+}
+
+.opp-label.is-turn {
+  background: rgba(255,215,0,0.2);
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.opp-tiles {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.opp-left .opp-tiles { flex-direction: column; max-height: 280px; }
+.opp-right .opp-tiles { flex-direction: column; max-height: 280px; }
+
+.back-tile {
+  width: 22px;
+  height: 30px;
+  background: linear-gradient(145deg, var(--tile-back) 0%, var(--tile-back-dark) 100%);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.opp-left .back-tile,
+.opp-right .back-tile {
+  width: 30px;
+  height: 22px;
+}
+
+/* Exposed melds for opponents */
+.opp-melds {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.opp-meld-tile {
+  padding: 2px 5px;
+  background: var(--tile-face);
+  color: #333;
+  border-radius: 3px;
+  font-size: 0.65em;
+  font-weight: 600;
+  border: 1px solid var(--tile-border);
+}
+
+/* --- Center info --- */
+
+.center-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.center-char {
+  font-size: 3em;
+  color: rgba(255,255,255,0.15);
+  font-weight: 700;
+  user-select: none;
+}
+
+.center-wall {
+  font-size: 0.9em;
+  color: var(--text-muted);
+}
+
+/* --- Discard river (in center) --- */
+
+.discard-center {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+  max-width: 320px;
+  min-height: 40px;
+}
+
+.discard-mini {
+  width: 26px;
+  height: 34px;
+  background: var(--tile-face);
+  border: 1px solid var(--tile-border);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.55em;
+  font-weight: 600;
+  color: #555;
+  line-height: 1.1;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* ============================================================
+   PLAYER HAND ZONE (bottom)
+   ============================================================ */
+
+.hand-bar {
+  background: linear-gradient(180deg, #1a3a25 0%, #0f2518 100%);
+  border-top: 2px solid var(--table-border);
+  padding: 12px 20px 16px;
+}
+
+.hand-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  font-size: 0.85em;
+  color: var(--text-muted);
+}
+
+.hand-label { font-weight: 600; color: var(--text-light); }
+
+.turn-badge {
+  padding: 3px 12px;
+  border-radius: 999px;
+  font-size: 0.8em;
+  font-weight: 600;
+}
+.turn-badge.your-turn {
+  background: rgba(255,215,0,0.15);
+  border: 1px solid var(--accent-gold);
+  color: var(--accent-gold);
+}
+.turn-badge.waiting {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--text-muted);
+}
+
+.hand-tiles {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+/* --- Tile (player's hand) --- */
 
 .mahjong-tile {
-  min-width: 72px;
-  min-height: 96px;
-  border-radius: 18px;
-  border: 2px solid var(--panel-border);
-  background: white;
-  color: var(--text);
-  padding: 12px 10px;
+  position: relative;
+  width: 52px;
+  height: 72px;
+  background: var(--tile-face);
+  border: 2px solid var(--tile-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  font-weight: 700;
+  color: #333;
+  cursor: default;
+  transition: transform 0.12s, box-shadow 0.12s, border-color 0.12s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.6);
+  padding: 4px 2px;
+  text-align: center;
+  line-height: 1.15;
+  user-select: none;
 }
 
-.tile-concealed {
-  background: linear-gradient(135deg, #7e4f21, #d19e54);
-  color: white;
-}
+.scale-l .mahjong-tile { width: 64px; height: 88px; font-size: 0.95em; }
+.scale-s .mahjong-tile { width: 44px; height: 62px; font-size: 0.7em; }
 
 .tile-interactive {
-  border-color: var(--accent);
+  cursor: pointer;
+  border-color: rgba(255,215,0,0.4);
+}
+.tile-interactive:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.6);
+  border-color: var(--accent-gold);
 }
 
 .tile-selected {
-  outline: 4px solid rgba(126, 79, 33, 0.28);
+  transform: translateY(-10px);
+  border-color: var(--accent-gold) !important;
+  box-shadow: 0 10px 28px rgba(255,215,0,0.3), 0 0 0 3px rgba(255,215,0,0.2);
 }
 
-.scale-s .mahjong-tile {
-  min-width: 68px;
-  min-height: 92px;
+/* Color coding by suit */
+.tile-bam span { color: #2e7d32; }
+.tile-crak span { color: #c62828; }
+.tile-dot span { color: #1565c0; }
+.tile-wind span,
+.tile-dragon span { color: #333; }
+.tile-flower span { color: #7b1fa2; }
+.tile-joker span { color: #e65100; font-style: italic; }
+
+.tile-concealed {
+  background: linear-gradient(145deg, var(--tile-back), var(--tile-back-dark));
+  color: transparent;
+  border-color: rgba(255,255,255,0.15);
 }
 
-.scale-l .mahjong-tile {
-  min-width: 90px;
-  min-height: 118px;
+/* ============================================================
+   ACTION BAR
+   ============================================================ */
+
+.action-bar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 8px 20px 12px;
+  background: rgba(10,31,18,0.95);
 }
 
-.status-panel {
+.primary-button,
+.secondary-button {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 12px;
+  border: 0;
+  font-weight: 600;
+  font-size: 0.85em;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.play-page .primary-button {
+  background: var(--btn-primary);
+  color: white;
+}
+.play-page .primary-button:hover:not(:disabled) { background: var(--btn-primary-hover); }
+.play-page .primary-button:disabled,
+.play-page .secondary-button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.play-page .secondary-button {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-light);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+/* ============================================================
+   CHARLESTON / CLAIM / VOTE OVERLAYS
+   ============================================================ */
+
+.overlay-bar {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(12px);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.overlay-bar h3 {
+  font-size: 1em;
+  font-weight: 700;
+  margin: 0;
+}
+
+.overlay-bar .helper-copy {
+  color: var(--text-muted);
+  font-size: 0.8em;
+  margin: 0;
+}
+
+.charleston-rule {
+  color: var(--accent-gold);
+  font-size: 0.78em;
+  font-weight: 600;
+}
+
+.vote-buttons { display: flex; gap: 8px; }
+
+.claim-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.claim-button {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 0;
+  font-weight: 600;
+  font-size: 0.85em;
+  transition: background 0.15s;
+}
+.claim-pong { background: var(--btn-primary); color: white; }
+.claim-kong { background: #1565c0; color: white; }
+.claim-mahjong { background: #c62828; color: white; }
+.claim-pass { background: rgba(255,255,255,0.1); color: var(--text-light); border: 1px solid rgba(255,255,255,0.15); }
+
+.claim-discard-tile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ============================================================
+   EXPOSED MELDS INLINE
+   ============================================================ */
+
+.melds-bar {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 6px 20px;
+  background: rgba(10,31,18,0.6);
+}
+
+.meld-group {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+}
+
+.meld-badge {
+  font-size: 0.6em;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  margin-left: 4px;
+  align-self: center;
+}
+
+/* ============================================================
+   RESULT OVERLAY
+   ============================================================ */
+
+.result-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.result-card {
+  background: var(--panel-bg);
+  border: 2px solid var(--panel-border);
+  border-radius: 24px;
+  padding: 40px 48px;
   text-align: center;
+  max-width: 400px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
 }
 
-@media (max-width: 960px) {
-  .table-layout {
-    grid-template-columns: 1fr;
-  }
+.result-card h2 { font-size: 2em; margin-bottom: 12px; }
+.result-card.result-win h2 { color: var(--accent-gold); }
+.result-card.result-loss h2 { color: var(--accent-red); }
+.result-card p { color: var(--text-muted); margin: 4px 0; }
+
+.result-card .primary-button { margin-top: 20px; }
+
+/* ============================================================
+   ROOM PAGE (lobby) — uses same table theme
+   ============================================================ */
+
+body:has(.room-page) {
+  background: var(--bg);
+  color: var(--text-light);
+  padding: 20px;
 }
+
+.room-page {
+  display: grid;
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.room-page .panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 24px;
+  backdrop-filter: blur(8px);
+}
+
+.room-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.room-header-actions { display: flex; gap: 8px; align-items: center; }
+.room-page .eyebrow { text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); font-size: 0.75em; font-weight: 600; margin-bottom: 6px; }
+.room-page h1 { font-size: 1.6em; margin: 0; }
+.room-page .helper-copy { color: var(--text-muted); font-size: 0.85em; }
+
+.seat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.seat-card {
+  background: rgba(13,77,40,0.6);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.seat-card-header { display: flex; justify-content: space-between; align-items: center; }
+.seat-label { text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-size: 0.75em; }
+.seat-card h3 { margin: 4px 0 0; }
+.seat-summary { color: var(--text-muted); font-size: 0.85em; }
+
+.seat-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75em;
+  font-weight: 600;
+  background: rgba(255,255,255,0.06);
+  color: var(--text-muted);
+}
+.seat-ready { background: rgba(76,175,80,0.15); color: #81c784; }
+
+.board-panel { display: grid; gap: 16px; }
+.board-topline { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+
+.phase-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.8em;
+  font-weight: 600;
+  background: rgba(255,255,255,0.08);
+  color: var(--text-muted);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.phase-finished { background: rgba(255,215,0,0.15); color: var(--accent-gold); border-color: var(--accent-gold); }
+
+.room-page .discard-river,
+.room-page .hand-zone {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-height: 80px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.2);
+}
+
+.table-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; align-items: start; }
+
+@media (max-width: 800px) {
+  .table-layout { grid-template-columns: 1fr; }
+  .mode-grid { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+.play-page .status-bar {
+  text-align: center;
+  font-size: 0.8em;
+  color: var(--text-muted);
+  padding: 6px;
+  background: rgba(0,0,0,0.3);
+}
+
+.empty-center { color: var(--text-muted); font-size: 0.8em; font-style: italic; }

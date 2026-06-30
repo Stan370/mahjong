@@ -8,6 +8,10 @@ const scaleClassName: Record<FontScale, string> = {
   L: "scale-l"
 };
 
+function getSuit(code: string): string {
+  return code.split("-")[0];
+}
+
 export function FontScalePicker(props: {
   value: FontScale;
   onChange: (nextValue: FontScale) => void;
@@ -36,9 +40,11 @@ export function MahjongTile(props: {
   scale?: FontScale;
   onClick?: () => void;
 }) {
+  const suit = getSuit(props.code);
   const classes = [
     "mahjong-tile",
     scaleClassName[props.scale ?? "M"],
+    `tile-${suit}`,
     props.concealed ? "tile-concealed" : "",
     props.interactive ? "tile-interactive" : "",
     props.selected ? "tile-selected" : ""
@@ -48,7 +54,7 @@ export function MahjongTile(props: {
 
   return (
     <button type="button" className={classes} onClick={props.onClick} disabled={!props.interactive}>
-      <span>{props.concealed ? "Hidden" : prettifyTileCode(props.code)}</span>
+      <span>{props.concealed ? "" : prettifyTileCode(props.code)}</span>
     </button>
   );
 }
@@ -101,15 +107,36 @@ export function ActionBar(props: {
 
 export function prettifyTileCode(code: string): string {
   const [kind, rawValue] = code.split("-");
-  if (kind === "wind" || kind === "dragon") {
-    return `${capitalize(rawValue)} ${capitalize(kind)}`;
+
+  // Chinese character representations
+  const crakChars: Record<string, string> = {
+    "1": "一\n万", "2": "二\n万", "3": "三\n万", "4": "四\n万", "5": "五\n万",
+    "6": "六\n万", "7": "七\n万", "8": "八\n万", "9": "九\n万"
+  };
+  const dotChars: Record<string, string> = {
+    "1": "一\n筒", "2": "二\n筒", "3": "三\n筒", "4": "四\n筒", "5": "五\n筒",
+    "6": "六\n筒", "7": "七\n筒", "8": "八\n筒", "9": "九\n筒"
+  };
+  const bamChars: Record<string, string> = {
+    "1": "一\n条", "2": "二\n条", "3": "三\n条", "4": "四\n条", "5": "五\n条",
+    "6": "六\n条", "7": "七\n条", "8": "八\n条", "9": "九\n条"
+  };
+
+  if (kind === "crak") return crakChars[rawValue] ?? `${rawValue}\n万`;
+  if (kind === "dot") return dotChars[rawValue] ?? `${rawValue}\n筒`;
+  if (kind === "bam") return bamChars[rawValue] ?? `${rawValue}\n条`;
+
+  if (kind === "wind") {
+    const windChars: Record<string, string> = { east: "東", south: "南", west: "西", north: "北" };
+    return windChars[rawValue] ?? rawValue;
   }
-  if (kind === "joker") {
-    return "Joker";
+  if (kind === "dragon") {
+    const dragonChars: Record<string, string> = { red: "中", green: "發", white: "白" };
+    return dragonChars[rawValue] ?? rawValue;
   }
-  if (kind === "flower") {
-    return "Flower";
-  }
+  if (kind === "joker") return "🃏";
+  if (kind === "flower") return "🌸";
+
   return `${capitalize(kind)} ${rawValue}`;
 }
 
